@@ -105,6 +105,25 @@ button:hover {
   pointer-events: none;
 }
 
+.music-control {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background: rgba(232, 62, 140, 0.9);
+  padding: 12px 15px;
+  border-radius: 50px;
+  cursor: pointer;
+  font-size: 20px;
+  z-index: 1000;
+  transition: 0.3s;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+}
+
+.music-control:hover {
+  transform: scale(1.1);
+  background: rgba(232, 62, 140, 1);
+}
+
 @keyframes floatUp {
   0% {
     transform: translateY(0) rotate(0deg);
@@ -132,6 +151,16 @@ button:hover {
 </head>
 
 <body>
+
+<!-- Background Music -->
+<audio id="bgMusic" loop>
+  <source src="https://www.youtube.com/watch?v=Nr_Km2sqsCY" type="audio/mpeg">
+</audio>
+
+<!-- Music Toggle Button -->
+<div class="music-control" id="musicToggle" onclick="toggleMusic()">
+  🎵
+</div>
 
 <!-- PAGE 1 -->
 <section class="page active" id="page1">
@@ -226,6 +255,7 @@ button:hover {
 <script>
 
 let currentPage = 1;
+let isMusicPlaying = false;
 
 function nextPage() {
 
@@ -274,6 +304,30 @@ function createHearts() {
     }, 7000);
   }
 }
+
+function toggleMusic() {
+  const audio = document.getElementById("bgMusic");
+  const toggle = document.getElementById("musicToggle");
+  
+  if (isMusicPlaying) {
+    audio.pause();
+    toggle.innerHTML = "🔇";
+    isMusicPlaying = false;
+  } else {
+    audio.play();
+    toggle.innerHTML = "🎵";
+    isMusicPlaying = true;
+  }
+}
+
+// Auto-play music when page loads
+window.addEventListener("load", function() {
+  const audio = document.getElementById("bgMusic");
+  audio.play().catch(err => {
+    console.log("Autoplay prevented by browser policy");
+  });
+  isMusicPlaying = true;
+});
 
 </script>
 
