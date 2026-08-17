@@ -152,10 +152,9 @@ button:hover {
 
 <body>
 
-<!-- Background Music -->
-<audio id="bgMusic" loop>
-  <source src="https://www.youtube.com/watch?v=Nr_Km2sqsCY" type="audio/mpeg">
-</audio>
+<!-- Hidden YouTube Player (replaces invalid <audio> tag) -->
+<!-- Using the IFrame API — this keeps playback legal and allowed by YouTube's embed rules -->
+<div id="yt-player" style="width:1px;height:1px;position:fixed;left:-9999px;top:-9999px"></div>
 
 <!-- Music Toggle Button -->
 <div class="music-control" id="musicToggle" onclick="toggleMusic()">
@@ -257,6 +256,55 @@ button:hover {
 let currentPage = 1;
 let isMusicPlaying = false;
 
+// YouTube video id (from the URL you sent)
+const VIDEO_ID = 'Nr_Km2sqsCY';
+
+// Player and readiness flag
+let ytPlayer = null;
+let ytReady = false;
+
+// Load YouTube IFrame API
+(function loadYouTubeAPI() {
+  if (window.YT && window.YT.Player) return;
+  const tag = document.createElement('script');
+  tag.src = "https://www.youtube.com/iframe_api";
+  document.head.appendChild(tag);
+})();
+
+// Called by YouTube API when ready
+function onYouTubeIframeAPIReady() {
+  ytPlayer = new YT.Player('yt-player', {
+    height: '1',
+    width: '1',
+    videoId: VIDEO_ID,
+    playerVars: {
+      autoplay: 0,
+      controls: 0,
+      modestbranding: 1,
+      rel: 0,
+      disablekb: 1,
+      playsinline: 1,
+      loop: 1,
+      playlist: VIDEO_ID
+    },
+    events: {
+      onReady: (e) => {
+        ytReady = true;
+        ytPlayer.setVolume(80);
+        // keep it muted until user toggles (optional)
+        ytPlayer.mute();
+      },
+      onStateChange: (e) => {
+        // PLAYING === 1
+        isMusicPlaying = (e.data === 1);
+        updateMusicButton();
+      }
+    }
+  });
+}
+window.onYouTubeIframeAPIReady = onYouTubeIframeAPIReady;
+
+
 function nextPage() {
 
   document.getElementById("page" + currentPage)
@@ -305,29 +353,38 @@ function createHearts() {
   }
 }
 
+// Toggle music: if YouTube player is ready, use it; otherwise do nothing
 function toggleMusic() {
-  const audio = document.getElementById("bgMusic");
   const toggle = document.getElementById("musicToggle");
-  
+
+  if (!ytReady) {
+    // If the API isn't ready yet, give control to a user gesture that will trigger creation
+    // Try to initialize again shortly (the API will call onYouTubeIframeAPIReady when ready)
+    console.log('YouTube player not ready yet.');
+    return;
+  }
+
   if (isMusicPlaying) {
-    audio.pause();
-    toggle.innerHTML = "🔇";
+    ytPlayer.pauseVideo();
+    ytPlayer.mute();
     isMusicPlaying = false;
+    toggle.innerHTML = "🔇";
   } else {
-    audio.play();
-    toggle.innerHTML = "🎵";
+    // unmute and play — this click is a user gesture so browsers will allow audible playback
+    ytPlayer.unMute();
+    ytPlayer.playVideo();
     isMusicPlaying = true;
+    toggle.innerHTML = "🎵";
   }
 }
 
-// Auto-play music when page loads
-window.addEventListener("load", function() {
-  const audio = document.getElementById("bgMusic");
-  audio.play().catch(err => {
-    console.log("Autoplay prevented by browser policy");
-  });
-  isMusicPlaying = true;
-});
+function updateMusicButton() {
+  const toggle = document.getElementById("musicToggle");
+  toggle.innerHTML = isMusicPlaying ? "🎵" : "🔇";
+}
+
+// NOTE: removed automatic audio.play() on load because browsers block audible autoplay.
+// The visitor should click the 🎵 button (or any first page click which we can wire) to start playback.
 
 </script>
 
