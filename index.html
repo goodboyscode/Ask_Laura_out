@@ -290,20 +290,49 @@ function onYouTubeIframeAPIReady() {
     events: {
       onReady: (e) => {
         ytReady = true;
-        ytPlayer.setVolume(80);
-        // keep it muted until user toggles (optional)
-        ytPlayer.mute();
+        try { ytPlayer.setVolume(80); } catch (e) { console.warn('setVolume failed', e); }
+        console.log('YT ready — attempting muted autoplay.');
+        // Attempt muted autoplay on load (this usually succeeds).
+        try {
+          ytPlayer.mute();
+          ytPlayer.playVideo();
+        } catch (err) {
+          console.warn('Muted autoplay attempt failed:', err);
+        }
       },
       onStateChange: (e) => {
         // PLAYING === 1
-        isMusicPlaying = (e.data === 1);
+        isMusicPlaying = (e.data === YT.PlayerState.PLAYING);
         updateMusicButton();
+        console.log('YT state changed:', e.data, 'isMusicPlaying=', isMusicPlaying);
       }
     }
   });
 }
 window.onYouTubeIframeAPIReady = onYouTubeIframeAPIReady;
 
+// If autoplay was muted, unmute on first user gesture anywhere (click, tap, key)
+function firstUserGesture() {
+  if (!ytReady || !ytPlayer) return;
+  try {
+    console.log('First user gesture detected — unmuting and ensuring playback.');
+    ytPlayer.unMute && ytPlayer.unMute();
+    ytPlayer.setVolume && ytPlayer.setVolume(80);
+    // If it's not playing yet, request play (gesture allows audible playback now)
+    if (ytPlayer.getPlayerState && ytPlayer.getPlayerState() !== YT.PlayerState.PLAYING) {
+      ytPlayer.playVideo && ytPlayer.playVideo();
+    }
+  } catch (e) {
+    console.warn('firstUserGesture error', e);
+  }
+  // remove listeners after first gesture
+  document.removeEventListener('pointerdown', firstUserGesture);
+  document.removeEventListener('keydown', firstUserGesture);
+}
+
+// install listeners to unmute on first interaction
+document.addEventListener('pointerdown', firstUserGesture, { passive: true });
+document.addEventListener('keydown', firstUserGesture, { passive: true });
 
 function nextPage() {
 
@@ -357,24 +386,29 @@ function createHearts() {
 function toggleMusic() {
   const toggle = document.getElementById("musicToggle");
 
-  if (!ytReady) {
-    // If the API isn't ready yet, give control to a user gesture that will trigger creation
-    // Try to initialize again shortly (the API will call onYouTubeIframeAPIReady when ready)
-    console.log('YouTube player not ready yet.');
+  if (!ytReady || !ytPlayer || !ytPlayer.getPlayerState) {
+    console.log('YT player not ready yet.');
     return;
   }
 
-  if (isMusicPlaying) {
+  const state = ytPlayer.getPlayerState();
+  console.log('toggleMusic clicked — player state:', state);
+
+  if (state === YT.PlayerState.PLAYING || isMusicPlaying) {
+    // currently playing -> pause & mute
     ytPlayer.pauseVideo();
-    ytPlayer.mute();
+    try { ytPlayer.mute(); } catch (e) { console.warn('mute failed', e); }
     isMusicPlaying = false;
     toggle.innerHTML = "🔇";
+    console.log('Paused and muted');
   } else {
-    // unmute and play — this click is a user gesture so browsers will allow audible playback
-    ytPlayer.unMute();
+    // currently not playing -> unmute & play
+    try { ytPlayer.unMute(); } catch (e) { console.warn('unMute failed', e); }
+    try { ytPlayer.setVolume(80); } catch (e) { /* ignore */ }
     ytPlayer.playVideo();
     isMusicPlaying = true;
     toggle.innerHTML = "🎵";
+    console.log('Unmuted and play requested (user gesture).');
   }
 }
 
@@ -382,9 +416,6 @@ function updateMusicButton() {
   const toggle = document.getElementById("musicToggle");
   toggle.innerHTML = isMusicPlaying ? "🎵" : "🔇";
 }
-
-// NOTE: removed automatic audio.play() on load because browsers block audible autoplay.
-// The visitor should click the 🎵 button (or any first page click which we can wire) to start playback.
 
 </script>
 
